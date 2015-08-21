@@ -87,6 +87,37 @@ test('pull and push queue', function(t) {
 	});
 });
 
+test('requeue message', function(t) {
+	var q = createQueue();
+	var called = false;
+
+	t.plan(4);
+
+	var handler = function(message, callback) {
+		t.deepEqual(message, { ok: 1 });
+
+		if(!called) {
+			called = true;
+			return callback(new Error('Not ok'));
+		}
+
+		q.close(function(err) {
+			t.error(err);
+		});
+	};
+
+	waterfall([
+		function(next) {
+			q.pull('test-pattern', handler, next);
+		},
+		function(next) {
+			q.push('test-pattern', { ok: 1 }, next);
+		}
+	], function(err) {
+		t.error(err);
+	});
+});
+
 test('pull twice same namespace', function(t) {
 	var q1 = createQueue();
 	var q2 = createQueue();

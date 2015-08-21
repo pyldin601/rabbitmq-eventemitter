@@ -130,7 +130,7 @@ Queue.prototype.pull = function(pattern, listener, callback) {
 				var data = JSON.parse(message.content.toString());
 
 				listener(data, function(err) {
-					if(util.isError(err)) channel.nack(message, false, false);
+					if(util.isError(err)) channel.nack(message, false, true);
 					else channel.ack(message, false);
 				});
 			});
