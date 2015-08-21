@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://bitbucket.org/voiceboxer/rabbitmq-eventemitter.git"
+    "url": "https://bitbucket.org/voiceboxer/rabbitmq-eventemitter.git"
   },
   "keywords": [
     "amqp",
