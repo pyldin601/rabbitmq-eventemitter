@@ -5,12 +5,6 @@ var afterAll = require('after-all');
 
 var queue = require('../');
 
-var CONNECTION_URL = 'amqp://localhost';
-var QUEUE_OPTIONS = {
-	durable: false,
-	autoDelete: true
-};
-
 var noopHandler = function(message, callback) {
 	callback();
 };
