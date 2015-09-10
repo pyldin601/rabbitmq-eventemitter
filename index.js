@@ -31,6 +31,7 @@ var Queue = function(url, options) {
 		});
 	});
 
+
 	var getChannel = function(callback) {
 		self._getConnection(function(err, connection) {
 			if(err) return callback(err);
@@ -44,6 +45,7 @@ var Queue = function(url, options) {
 		});
 	};
 
+	this._waitQueues = {};
 	this._onerror = onerror;
 	this._getConsumeChannel = thunky(getChannel);
 	this._getPublishChannel = thunky(getChannel);
@@ -84,31 +86,8 @@ Queue.prototype.push = function(pattern, data, options, callback) {
 			callback();
 		};
 
-		if(delay) {
-			var waitExchangeName = self._waitExchangeName(delay);
-			var waitQueueName = self._waitQueueName(pattern, delay);
-			var next = afterAll(function(err) {
-				publish(err, waitExchangeName);
-			});
-
-			channel.assertExchange(waitExchangeName, 'direct', {
-				durable: true,
-				autoDelete: false
-			}, next());
-
-			channel.assertQueue(waitQueueName, {
-				durable: true,
-				autoDelete: false,
-				arguments: {
-					'x-message-ttl': delay,
-					'x-dead-letter-exchange': EXCHANGE
-				}
-			}, next());
-
-			return channel.bindQueue(waitQueueName, waitExchangeName, pattern, null, next());
-		}
-
-		publish(null, EXCHANGE);
+		if(delay) self._assertWaitQueue(channel, pattern, delay, publish);
+		else publish(null, EXCHANGE);
 	});
 };
 
@@ -162,6 +141,41 @@ Queue.prototype.close = function(callback) {
 			callback(err);
 		});
 	});
+};
+
+Queue.prototype._assertWaitQueue = function(channel, pattern, delay, callback) {
+	var waitExchangeName = this._waitExchangeName(delay);
+	var waitQueueName = this._waitQueueName(pattern, delay);
+
+	var fn = this._waitQueues[waitQueueName];
+
+	if(!fn) {
+		fn = thunky(function(cb) {
+			var next = afterAll(function(err) {
+				cb(err, waitExchangeName);
+			});
+
+			channel.assertExchange(waitExchangeName, 'direct', {
+				durable: true,
+				autoDelete: false
+			}, next());
+
+			channel.assertQueue(waitQueueName, {
+				durable: true,
+				autoDelete: false,
+				arguments: {
+					'x-message-ttl': delay,
+					'x-dead-letter-exchange': EXCHANGE
+				}
+			}, next());
+
+			channel.bindQueue(waitQueueName, waitExchangeName, pattern, null, next());
+		});
+
+		this._waitQueues[waitQueueName] = fn;
+	}
+
+	fn(callback);
 };
 
 Queue.prototype._queueName = function(pattern) {
