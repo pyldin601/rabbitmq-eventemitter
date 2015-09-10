@@ -1,6 +1,6 @@
 {
   "name": "rabbitmq-eventemitter",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Simplified rabbitmq events",
   "main": "index.js",
   "scripts": {
