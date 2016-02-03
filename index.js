@@ -31,16 +31,28 @@ var Queue = function(url, options) {
 		});
 	});
 
-
 	var getChannel = function(callback) {
+		var channelOptions = options.channelOptions || {};
+		var prefetch = channelOptions.prefetch;
+
 		self._getConnection(function(err, connection) {
 			if(err) return callback(err);
 
 			connection.createChannel(function(err, channel) {
 				if(err) return callback(err);
-
 				channel.on('error', onerror);
-				callback(null, channel);
+
+				if(prefetch) {
+					var onprefetch = afterAll(function(err) {
+						if(err) return callback(err);
+						callback(null, channel);
+					});
+
+					if(prefetch.global) channel.prefetch(prefetch.global, true, onprefetch());
+					if(prefetch.local) channel.prefetch(prefetch.local, false, onprefetch());
+				} else {
+					callback(null, channel);
+				}
 			});
 		});
 	};
