@@ -57,6 +57,7 @@ var Queue = function(url, options) {
 		});
 	};
 
+	this._exchangeName = options.exchange || EXCHANGE;
 	this._waitQueues = {};
 	this._onerror = onerror;
 	this._getConsumeChannel = thunky(getChannel);
@@ -94,12 +95,12 @@ Queue.prototype.push = function(pattern, data, options, callback) {
 			if(err) return callback(err);
 
 			var content = new Buffer(JSON.stringify(data));
-			channel.publish(exchange, pattern, content);
+			channel.publish(exchange, pattern, content, options);
 			callback();
 		};
 
 		if(delay) self._assertWaitQueue(channel, pattern, delay, publish);
-		else publish(null, EXCHANGE);
+		else publish(null, self._exchangeName);
 	});
 };
 
@@ -119,17 +120,19 @@ Queue.prototype.pull = function(pattern, listener, callback) {
 			// channel.consume eats uncaught exceptions
 			process.nextTick(function() {
 				var data = JSON.parse(message.content.toString());
-
-				listener(data, function(err) {
+				var onresponse = function(err) {
 					if(util.isError(err)) channel.nack(message, false, true);
 					else channel.ack(message, false);
-				});
+				};
+
+				if(listener.length <= 2) listener(data, onresponse);
+				else listener(data, message, onresponse);
 			});
 		};
 
 		var next = afterAll(callback);
 
-		channel.assertExchange(EXCHANGE, 'direct', {
+		channel.assertExchange(self._exchangeName, 'direct', {
 			durable: true,
 			autoDelete: false
 		}, next());
@@ -140,7 +143,7 @@ Queue.prototype.pull = function(pattern, listener, callback) {
 			arguments: { 'x-expires': QUEUE_TTL }
 		}, next());
 
-		channel.bindQueue(queueName, EXCHANGE, pattern, null, next());
+		channel.bindQueue(queueName, self._exchangeName, pattern, null, next());
 		channel.consume(queueName, onmessage, null, next());
 	});
 };
@@ -156,6 +159,7 @@ Queue.prototype.close = function(callback) {
 };
 
 Queue.prototype._assertWaitQueue = function(channel, pattern, delay, callback) {
+	var self = this;
 	var waitExchangeName = this._waitExchangeName(delay);
 	var waitQueueName = this._waitQueueName(pattern, delay);
 
@@ -177,7 +181,7 @@ Queue.prototype._assertWaitQueue = function(channel, pattern, delay, callback) {
 				autoDelete: false,
 				arguments: {
 					'x-message-ttl': delay,
-					'x-dead-letter-exchange': EXCHANGE
+					'x-dead-letter-exchange': self._exchangeName
 				}
 			}, next());
 

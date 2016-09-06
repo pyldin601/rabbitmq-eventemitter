@@ -197,8 +197,10 @@ test('push with delay', function(t) {
 	t.plan(4);
 
 	var handler = function(message, callback) {
+		var delta = Date.now() - time;
+
 		t.deepEqual(message, { ok: 1 });
-		t.ok(almostEqual(Date.now() - time, 1000, 100));
+		t.ok(almostEqual(delta, 1000, 100), delta + ' should be close to 1000 milliseconds');
 
 		callback();
 
@@ -214,6 +216,40 @@ test('push with delay', function(t) {
 		function(next) {
 			time = Date.now();
 			q.push('test-pattern', { ok: 1 }, { delay: 1000 }, next);
+		}
+	], function(err) {
+		t.error(err);
+	});
+});
+
+test('push with additional options', function(t) {
+	var q = createQueue();
+
+	t.plan(6);
+
+	var handler = function(message, options, callback) {
+		t.deepEqual(message, { ok: 1 });
+		t.equals(options.properties.contentType, 'application/json');
+		t.equals(options.properties.correlationId, 'test-correlation-id');
+		t.equals(options.properties.replyTo, 'test-reply-to');
+
+		callback();
+
+		q.close(function(err) {
+			t.error(err);
+		});
+	};
+
+	waterfall([
+		function(next) {
+			q.pull('test-pattern', handler, next);
+		},
+		function(next) {
+			q.push('test-pattern', { ok: 1 }, {
+				contentType: 'application/json',
+				correlationId: 'test-correlation-id',
+				replyTo: 'test-reply-to'
+			}, next);
 		}
 	], function(err) {
 		t.error(err);
