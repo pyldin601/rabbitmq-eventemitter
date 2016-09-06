@@ -2,6 +2,7 @@ var test = require('tape');
 var request = require('request');
 var waterfall = require('run-waterfall');
 var afterAll = require('after-all');
+var almostEqual = require('almost-equal');
 
 var queue = require('../');
 
@@ -190,12 +191,15 @@ test('pull twice different namespace', function(t) {
 });
 
 test('push with delay', function(t) {
+	var time = null;
 	var q = createQueue();
 
-	t.plan(3);
+	t.plan(4);
 
 	var handler = function(message, callback) {
 		t.deepEqual(message, { ok: 1 });
+		t.ok(almostEqual(Date.now() - time, 1000, 100));
+
 		callback();
 
 		q.close(function(err) {
@@ -208,6 +212,7 @@ test('push with delay', function(t) {
 			q.pull('test-pattern', handler, next);
 		},
 		function(next) {
+			time = Date.now();
 			q.push('test-pattern', { ok: 1 }, { delay: 1000 }, next);
 		}
 	], function(err) {
