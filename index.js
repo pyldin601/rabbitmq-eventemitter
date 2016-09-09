@@ -65,10 +65,16 @@ var Queue = function(url, options) {
 
 	var namespace = options.namespace;
 
+	this._exchangeOptions = extend({
+		durable: true,
+		autoDelete: false
+	}, options.exchangeOptions);
+
 	this._queueOptions = extend({
 		namespace: namespace || rs.generate(16),
 		durable: !!namespace,
-		autoDelete: !namespace
+		autoDelete: !namespace,
+		expires: QUEUE_TTL
 	}, options.queueOptions);
 };
 
@@ -104,14 +110,22 @@ Queue.prototype.push = function(pattern, data, options, callback) {
 	});
 };
 
-Queue.prototype.pull = function(pattern, listener, callback) {
-	var self = this;
-	var queueName = this._queueName(pattern);
-	var queueOptions = this._queueOptions;
+Queue.prototype.pull = function(pattern, listener, options, callback) {
+	if(!callback && typeof options === 'function') {
+		callback = options;
+		options = null;
+	}
 
+	var self = this;
+
+	options = options || {};
 	callback = callback || function(err) {
 		if(err) self._onerror(err);
 	};
+
+	var queueName = this._queueName(pattern);
+	var exchangeOptions = this._exchangeOptions;
+	var queueOptions = extend(this._queueOptions, options.queueOptions);
 
 	this._getConsumeChannel(function(err, channel) {
 		if(err) return callback(err);
@@ -133,14 +147,14 @@ Queue.prototype.pull = function(pattern, listener, callback) {
 		var next = afterAll(callback);
 
 		channel.assertExchange(self._exchangeName, 'direct', {
-			durable: true,
-			autoDelete: false
+			durable: exchangeOptions.durable,
+			autoDelete: exchangeOptions.autoDelete
 		}, next());
 
 		channel.assertQueue(queueName, {
 			durable: queueOptions.durable,
 			autoDelete: queueOptions.autoDelete,
-			arguments: { 'x-expires': QUEUE_TTL }
+			arguments: { 'x-expires': queueOptions.expires }
 		}, next());
 
 		channel.bindQueue(queueName, self._exchangeName, pattern, null, next());

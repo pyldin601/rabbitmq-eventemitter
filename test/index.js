@@ -255,3 +255,32 @@ test('push with additional options', function(t) {
 		t.error(err);
 	});
 });
+
+test('pull with additional options', function(t) {
+	var q = createQueue();
+
+	t.plan(3);
+
+	var handler = function(message, callback) {
+		t.deepEqual(message, { ok: 1 });
+		callback();
+
+		q.close(function(err) {
+			t.error(err);
+		});
+	};
+
+	waterfall([
+		function(next) {
+			q.pull('test-pattern', handler, {
+				durable: false,
+				expires: 60000 },
+			next);
+		},
+		function(next) {
+			q.push('test-pattern', { ok: 1 }, next);
+		}
+	], function(err) {
+		t.error(err);
+	});
+});
