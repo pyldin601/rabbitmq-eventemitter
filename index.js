@@ -123,9 +123,9 @@ Queue.prototype.pull = function(pattern, listener, options, callback) {
 		if(err) self._onerror(err);
 	};
 
-	var queueName = this._queueName(pattern);
 	var exchangeOptions = this._exchangeOptions;
 	var queueOptions = extend(this._queueOptions, options.queueOptions);
+	var queueName = this._queueName(queueOptions.namespace, pattern);
 
 	this._getConsumeChannel(function(err, channel) {
 		if(err) return callback(err);
@@ -208,8 +208,8 @@ Queue.prototype._assertWaitQueue = function(channel, pattern, delay, callback) {
 	fn(callback);
 };
 
-Queue.prototype._queueName = function(pattern) {
-	return this._queueOptions.namespace + '.' + pattern;
+Queue.prototype._queueName = function(namespace, pattern) {
+	return namespace + '.' + pattern;
 };
 
 Queue.prototype._waitQueueName = function(pattern, delay) {
