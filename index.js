@@ -10,6 +10,8 @@ var extend = require('xtend');
 var QUEUE_TTL = 2 * 24 * 60 * 60 * 1000;
 var EXCHANGE = 'globalexchange';
 
+var nextTick = process.nextTick;
+
 var Queue = function(url, options) {
 	if(!(this instanceof Queue)) return new Queue(url, options);
 	events.EventEmitter.call(this);
@@ -22,11 +24,22 @@ var Queue = function(url, options) {
 		self.emit('error', err);
 	});
 
+	var onclose = function(err) {
+		if(err) onerror(err);
+		self.emit('close');
+	};
+
 	this._getConnection = thunky(function(callback) {
 		amqp.connect(url, options.connectOptions, function(err, connection) {
 			if(err) return callback(err);
 
-			connection.on('error', onerror);
+			connection.on('error', function(err) {
+				nextTick(onerror, err);
+			});
+			connection.on('close', function(err) {
+				nextTick(onclose, err);
+			});
+
 			callback(null, connection);
 		});
 	});
@@ -132,7 +145,7 @@ Queue.prototype.pull = function(pattern, listener, options, callback) {
 
 		var onmessage = function(message) {
 			// channel.consume eats uncaught exceptions
-			process.nextTick(function() {
+			nextTick(function() {
 				var data = JSON.parse(message.content.toString());
 				var onresponse = function(err) {
 					if(util.isError(err)) channel.nack(message, false, true);
