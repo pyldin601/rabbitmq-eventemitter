@@ -146,7 +146,15 @@ Queue.prototype.pull = function(pattern, listener, options, callback) {
 		var onmessage = function(message) {
 			// channel.consume eats uncaught exceptions
 			nextTick(function() {
-				var data = JSON.parse(message.content.toString());
+				var data;
+				try {
+					data = JSON.parse(message.content.toString());
+				} catch (e) {
+					// if message broken - ignore it
+					channel.ack(message, false);
+					return;
+				}
+				
 				var onresponse = function(err) {
 					if(util.isError(err)) channel.nack(message, false, true);
 					else channel.ack(message, false);
